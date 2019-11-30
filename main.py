@@ -6,6 +6,7 @@ Created on Wed Nov 13 00:10:10 2019
 """
 import tkinter as tk
 from tkinter import *
+from tkinter import filedialog
 import threading
 import os
 from os.path import isfile, join
@@ -15,6 +16,7 @@ import keyboard
 #import numpy as np
 import cv2
 from win32api import GetSystemMetrics
+import win32con
 #______________________________________________________________________________
 # Class for creating upper menu in application
 # Input parameters are following:
@@ -77,7 +79,7 @@ class Record:
         # define the codec
         fourcc = cv2.VideoWriter_fourcc(*"XVID")
         # create the video write object
-        out = cv2.VideoWriter("output.avi", fourcc, 20.0, (SCREEN_SIZE))
+        out = cv2.VideoWriter("{}/{}.avi".format(RecordingWin.dirname,RecordingWin.title), fourcc, 20.0, (SCREEN_SIZE))
         
         while True:
             # make a screenshot
@@ -101,34 +103,46 @@ class Record:
     def rec():
          thread = threading.Thread(target=Record.run)  
          thread.start()
-    def create_video(frame_array,cv2):
-        fps = 24
-        size = (1024,768)  
-        out = cv2.VideoWriter('movie.avi',cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
-        for im in frame_array:
-         # writing to a image array
-             out.write(im)
-        out.release()
-        print('Video saved succesfully')
 #______________________________________________________________________________
 # Class for child windows
 class RecordingWin:
     i = 0
-    def __init__(self,master,photo,title="New"):
-        RecordingWin.i +=1
-        self.master = master
-        self.title = title
-        self.sub_window = Toplevel(master)
-        self.sub_window.title('{}-{}'.format(title, RecordingWin.i))
-        self.sub_window.geometry("300x200+200+200")
-        self.file_frame = tk.LabelFrame(self.sub_window,text="New recording pannel", padx=30, pady=20)
+    dirname = "./temp"
+    title = 'New'
+    def __init__(self,master,photo):
+        try:
+            Tk().withdraw()
+            RecordingWin.dirname = filedialog.askdirectory(initialdir=os.getcwd(), \
+                                                           title='Please select a directory')
+
+        finally:
+            RecordingWin.i +=1
+            self.master = master
+            self.sub_window = Toplevel(master)
+            self.sub_window.title('{}'.format(RecordingWin.title))
+            self.sub_window.geometry("300x200+200+200")
+            self.file_frame = tk.LabelFrame(self.sub_window,text="New recording pannel", padx=30, pady=20)
+            self.file_frame.grid(column=3,row=4,padx=1,pady=1)
+            self.rec = Button(self.file_frame,image=photo[0], command= self.switchon)
+            self.rec.grid(column=0,row=0)
+            self.stop_rec = Button(self.file_frame,image=photo[2], command= self.switchoff, state='disabled')
+            self.stop_rec.grid(column=1,row=0)
+            self.file_frame.grid_forget()
+            self.name = tk.StringVar()
+            self.textfield = Entry(self.sub_window,\
+                                   textvariable = self.name)
+            self.textfield.insert(0,RecordingWin.title)
+            self.textfield.grid(column=0,row=0)
+            self.button = Button(self.sub_window, text="Enter name", \
+                                 command = self.file_name)
+            self.button.grid(column=1,row=0)
+            
+    def file_name(self):
+        RecordingWin.title = self.name.get()
         self.file_frame.grid(column=3,row=4,padx=1,pady=1)
-        self.rec = Button(self.file_frame,image=photo[0], command= self.switchon)
-        self.rec.grid(column=0,row=0)
-        self.stop_rec = Button(self.file_frame,image=photo[2], command= self.switchoff, state='disabled')
-        self.stop_rec.grid(column=1,row=0)
-        self.save = Button(self.file_frame,image=photo[1], command= lambda: Record.create_video('./temp/untitled-1/','video.avi'))
-        self.save.grid(column=2,row=0)
+        self.button.grid_forget()
+        self.textfield.grid_forget()
+        self.sub_window.title('{}'.format(RecordingWin.title))
     def switchon(self):
         global switch
         Record.switch = True
@@ -151,4 +165,4 @@ class RecordingWin:
 
 
 
-              
+ 
