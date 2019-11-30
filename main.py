@@ -7,9 +7,15 @@ Created on Wed Nov 13 00:10:10 2019
 import tkinter as tk
 from tkinter import *
 import threading
-import time
-import pyautogui as pya
 import os
+from os.path import isfile, join
+import pyautogui
+import numpy as np
+import keyboard
+#import numpy as np
+import cv2
+from win32api import GetSystemMetrics
+#______________________________________________________________________________
 # Class for creating upper menu in application
 # Input parameters are following:
 # master is parent of bar
@@ -48,62 +54,101 @@ class Functions(MenuBar):
             master.destroy()
         except:
             pass
-    def createNpaste(master,photo,command,column,row):
-        r_btn= Button(master, command = command)
-        r_btn.config(image=photo,width="30",height="30")
-        r_btn.grid(column=column,row=row)
-
-class Record:
-    switch = True 
-    @staticmethod
-    def create_n_save(frames):
-        i = 0
-        for frame in frames:
-            frame.save("temp/{}.png".format(i))
-            i += 1
-        print(RecordingWin.i)    
-    def run():
-        counter = time.time()
-        i = 0
-        fps = 24
-        mov = []
-        while (Record.switch == True):
-            start = time.time()
-            scr = pya.screenshot()
-            mov.append(scr)
-            i += 1
-            dur = time.time() - start
-            slp = abs(dur - 1/fps)
-            time.sleep(slp)
-
-        print(i)
-        print("Loop breaked")
-        Record.create_n_save(mov)    
-    
-    def rec():  
-         thread = threading.Thread(target=Record.run)  
-         thread.start()      
-    def switchon():    
-        global switch
-        Record.switch = True     
-        Record.rec()    
-            
-    def switchoff():      
-        global switch  
-        Record.switch = False
         
+    def check_folder():
+        if len(os.listdir('temp') ) == 0:
+            return False
+        else:    
+            return True
+    def labels(master,items):
+        i = 0
+        for item in items:
+            label = Label(master,text=item)
+            label.grid(row=0,column=i)
+            master.grid_rowconfigure(0, weight=1)
+            master.grid_columnconfigure(0, weight=1)
+            i += 1
+#______________________________________________________________________________
+# Class for monitor screening
+class Record:
+    def run():
+    # display screen resolution, get it from your OS settings
+        SCREEN_SIZE = (GetSystemMetrics(0), GetSystemMetrics(1))
+        # define the codec
+        fourcc = cv2.VideoWriter_fourcc(*"XVID")
+        # create the video write object
+        out = cv2.VideoWriter("output.avi", fourcc, 20.0, (SCREEN_SIZE))
+        
+        while True:
+            # make a screenshot
+            img = pyautogui.screenshot()
+            # convert these pixels to a proper numpy array to work with OpenCV
+            frame = np.array(img)
+            # convert colors from BGR to RGB
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # write the frame
+            out.write(frame)
+        
+            if keyboard.is_pressed('ctrl+alt+i') or Record.switch == False:
+                break
+        # make sure everything is closed when exited
+        cv2.destroyAllWindows()
+        out.release()
+
+        print("Loop breaked")
+
+    
+    def rec():
+         thread = threading.Thread(target=Record.run)  
+         thread.start()
+    def create_video(frame_array,cv2):
+        fps = 24
+        size = (1024,768)  
+        out = cv2.VideoWriter('movie.avi',cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
+        for im in frame_array:
+         # writing to a image array
+             out.write(im)
+        out.release()
+        print('Video saved succesfully')
+#______________________________________________________________________________
+# Class for child windows
 class RecordingWin:
-    i = 1
-    def __init__(self,master, photo, title):
+    i = 0
+    def __init__(self,master,photo,title="New"):
+        RecordingWin.i +=1
         self.master = master
         self.title = title
         self.sub_window = Toplevel(master)
         self.sub_window.title('{}-{}'.format(title, RecordingWin.i))
-        self.sub_window.geometry("320x240+200+200")
-        rec = Functions.createNpaste(self.sub_window,photo[0],lambda: Record.switchon(),0,0)
-        stop_rec = Functions.createNpaste(self.sub_window,photo[2],lambda: Record.switchoff(),1,0)
-        save = Functions.createNpaste(self.sub_window,photo[1],lambda: Functions.test(),2,0)
-        RecordingWin.i +=1
+        self.sub_window.geometry("300x200+200+200")
+        self.file_frame = tk.LabelFrame(self.sub_window,text="New recording pannel", padx=30, pady=20)
+        self.file_frame.grid(column=3,row=4,padx=1,pady=1)
+        self.rec = Button(self.file_frame,image=photo[0], command= self.switchon)
+        self.rec.grid(column=0,row=0)
+        self.stop_rec = Button(self.file_frame,image=photo[2], command= self.switchoff, state='disabled')
+        self.stop_rec.grid(column=1,row=0)
+        self.save = Button(self.file_frame,image=photo[1], command= lambda: Record.create_video('./temp/untitled-1/','video.avi'))
+        self.save.grid(column=2,row=0)
+    def switchon(self):
+        global switch
+        Record.switch = True
+        self.rec.config(state='disabled')
+        self.stop_rec.config(state='active')
+        Record.rec()    
+            
+    def switchoff(self):      
+        global switch  
+        Record.switch = False
+        self.label = Label(self.file_frame,text='Stop rec')
+        self.label.grid(column=1,row=1)
+
+        
+        
+        
+
+
+        
+
 
 
               
