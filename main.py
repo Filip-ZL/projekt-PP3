@@ -16,9 +16,11 @@ import keyboard
 #import numpy as np
 import cv2
 from win32api import GetSystemMetrics
-import win32con
+import tkinter.messagebox as tkm
+import PIL.Image, PIL.ImageTk
+from multiprocessing import Process
 #______________________________________________________________________________
-# Class for creating upper menu in application
+# Class for creating upper menu and main page in application
 # Input parameters are following:
 # master is parent of bar
 # items will show if you click on main item
@@ -129,14 +131,16 @@ class RecordingWin:
             self.stop_rec.grid(column=1,row=0)
             self.file_frame.grid_forget()
             self.name = tk.StringVar()
-            self.textfield = Entry(self.sub_window,\
-                                   textvariable = self.name)
+            self.textfield = Entry(self.sub_window, textvariable = self.name)
             self.textfield.insert(0,RecordingWin.title)
             self.textfield.grid(column=0,row=0)
             self.button = Button(self.sub_window, text="Enter name", \
                                  command = self.file_name)
             self.button.grid(column=1,row=0)
-            
+            self.sub_window.protocol("WM_DELETE_WINDOW",self.runplayer)
+    def runplayer(self):
+        Player(self.master)
+        self.sub_window.destroy()
     def file_name(self):
         RecordingWin.title = self.name.get()
         self.file_frame.grid(column=3,row=4,padx=1,pady=1)
@@ -153,16 +157,107 @@ class RecordingWin:
     def switchoff(self):      
         global switch  
         Record.switch = False
-        self.label = Label(self.file_frame,text='Stop rec')
-        self.label.grid(column=1,row=1)
-
+        self.stop_rec.config(state='disabled')
+    
         
-        
-        
-
-
-        
-
-
-
+#______________________________________________________________________________
+#class for player
+class Player:
+    def __init__(self, window):
+         
+         self.window = window
+         try:
+             self.video_source = '{}/{}.avi'.format(RecordingWin.dirname,RecordingWin.title)
+     
+             # open video source (by default this will try to open the computer webcam)
+             self.vid = MyVideoCapture(self.video_source)
+             # Create a canvas that can fit the above video source size
+             self.canvas = Canvas(window, width = self.vid.width*1/2, height = self.vid.height*1/2)
+             self.canvas.pack()
+             # After it is called once, the update method will be automatically called every delay milliseconds
+             self.delay = 15
+             thread = threading.Thread(target=self.update)
+             thread.start()
+     
+         except:
+            self.label = Label(self.window,text="Nothing to display")
+            self.label.pack()
+    def update(self):
+         # Get a frame from the video source
+         ret, frame = self.vid.get_frame()
+         if keyboard.is_pressed('space'):
+             keyboard.wait('Enter')
+         if ret:
+             frame1 = cv2.resize(frame,(int(self.vid.width*1/2),int(self.vid.height*1/2)))
+             self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(frame1))
+             self.canvas.create_image(0, 0, image = self.photo, anchor=NW)
+         self.window.after(self.delay, self.update)
+         
  
+class MyVideoCapture:
+    def __init__(self, video_source=0):
+         # Open the video source
+         self.vid = cv2.VideoCapture(video_source)
+         if not self.vid.isOpened():
+             raise ValueError("Unable to open video source", video_source)
+ 
+         # Get video source width and height
+         self.width = self.vid.get(cv2.CAP_PROP_FRAME_WIDTH)
+         self.height = self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT)
+ 
+    def get_frame(self):
+         if self.vid.isOpened():
+             ret, frame = self.vid.read()
+             if ret:
+                 # Return a boolean success flag and the current frame converted to BGR
+                 return (ret, cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+             else:
+                 return (ret, None)
+         else:
+             return (ret, None)
+ 
+     # Release the video source when the object is destroyed
+    def __del__(self):
+         if self.vid.isOpened():
+             self.vid.release()
+ # Create a window and pass it to the Application object
+#______________________________________________________________________________
+# Start program
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.geometry('900x600')
+    root.title("Screen Recorder")
+    r_images = [PhotoImage(file="img/rec.png"),
+              PhotoImage(file="img/save.png"),
+              PhotoImage(file="img/stop_rec.png")]
+    uitems = {'File' : [['New',lambda: RecordingWin(root,r_images)],
+                   ['Save',lambda: Functions.test()],
+                   ['-','Exit',lambda: Functions._quit()]],
+              'Tools' : [['Settings',lambda: Functions.test()]]}
+    a = MenuBar(root,uitems)
+    #Functions.new_button(k)
+    def on_closing():
+        if tkm.askokcancel("Quit","Are you sure to quit?"):
+            n = 0
+            while 1:
+                try:
+                    os.remove("temp/Untitled-{}/{}.png".format(RecordingWin.i,n))
+                except:
+                    break
+                finally:
+                    n += 1  
+            root.quit()
+            root.destroy()
+    root.protocol("WM_DELETE_WINDOW", on_closing)
+    root.iconbitmap(default="./img/rec_icon_sm.ico")
+    root.mainloop()
+        
+        
+        
+
+
+        
+
+
+
+              
